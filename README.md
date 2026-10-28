@@ -19,8 +19,9 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 ### Code Scripts (Authored)
 * **`fetch_tmdb_metadata.py`** 
     Downloads the official Netflix TSV dataset (if not present) and queries the TMDB REST API to extract metadata (genres, episode/season counts, ratings, original language) for all unique TV titles.
-* **`build_master_dataset.py`**   
-    Aggregates weekly records from `all-weeks-global.tsv` to calculate each show's maximum chart longevity ($Y = \text{max\_weeks}$), merges it with TMDB metadata ($X$), cleans missing values, and exports `master_netflix_analysis.csv`.
+* **`build_master_dataset.py`**  
+  * **Source:** Written script.  
+  * **Description:** Aggregates weekly records from `all-weeks-global.tsv` to calculate each show's maximum chart longevity (`Y = max_weeks`), merges it with TMDB metadata (`X`), cleans missing values, and exports `master_netflix_analysis.csv`.
 * **`eda_presentation1.py`**  
     Computes summary statistics ($N$, mean, standard deviation, min/max) and exports high-resolution figures into the `plots/` directory for presentation slides.
 
