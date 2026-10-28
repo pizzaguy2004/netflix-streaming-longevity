@@ -16,7 +16,7 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 
 ## File & Directory Reference
 
-### Code Scripts (Authored)
+### Python Code Scripts
 * **`fetch_tmdb_metadata.py`** 
     Downloads the official Netflix TSV dataset (if not present) and queries the TMDB REST API to extract metadata (genres, episode/season counts, ratings, original language) for all unique TV titles.
 * **`build_master_dataset.py`** 
@@ -42,4 +42,4 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 * **`data/title.episode.tsv`**  
   * **Source:** IMDb Non-Commercial Datasets (`datasets.imdbws.com`).  
   * **Description:** Raw IMDb bulk dataset mapping parent series IDs to individual episode season numbers and episode numbers.
-* **`data/title.ratings.tsv
+* **`data/title.ratings.tsv`**
