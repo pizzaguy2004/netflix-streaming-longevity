@@ -43,3 +43,9 @@ This project analyzes the key factors driving the chart longevity of TV shows on
   * **Source:** IMDb Non-Commercial Datasets (`datasets.imdbws.com`).  
   * **Description:** Raw IMDb bulk dataset mapping parent series IDs to individual episode season numbers and episode numbers.
 * **`data/title.ratings.tsv`**
+
+### Previous Literature
+* ** Patterns and Dynamics of Netflix Show Popularity
+* https://arxiv.org/pdf/2507.01620
+* Focuses on determining if the top-ranked shows in one country can predict the top-ranked shows in other countries. Concludes viewing patterns are based on popularity strength and regional proximity.
+    *  Analyzes the    
