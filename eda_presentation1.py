@@ -15,6 +15,7 @@ filtered_df = merged_df.dropna(subset=['tmdb_id_y'])
 print(filtered_df)
 
 
+
 #BAR PLOT OF SPECIFIC GENRE FREQUENCIES. BREAK UP MULLTIPLE GENRE DISCRIPTIONS INTO INDIVIDUAL TO MAKE PLOT CLEANER
 seperated_genres = filtered_df['genres_y'].str.split(', | & ').explode()
 
@@ -33,6 +34,24 @@ final_counts.columns = ['Genre', 'Count']
 plt.figure(figsize=(10,6))
 sns.barplot(data=final_counts, x = 'Count', y = 'Genre', palette = 'muted')
 plt.title('Frequency of Genre ')
+plt.tight_layout()
+plt.show()
+
+
+
+#MATRIX TO COMPARE WHICH GENRES MOST FREQUENTLY PAIR UP TOGETHER
+# Split and merge genre column cleanly
+exploded_df = filtered_df.assign(seperated_genre=filtered_df['genres_y'].str.split(', ')).explode('seperated_genre')
+
+# Build the  matrix using columns from the same df
+genre_matrix = pd.crosstab(exploded_df['show_title'], exploded_df['seperated_genre'])
+
+# Multiply the matrix by its transpose to count shared pairs
+co_occurence = genre_matrix.T.dot(genre_matrix)
+
+plt.figure(figsize=(12, 10)) # Increased size so text doesn't overlap
+sns.heatmap(co_occurence, annot=True, fmt='d', cmap='YlGnBu', cbar=True)
+plt.title('Genre Co-occurrence Heatmap')
 plt.tight_layout()
 plt.show()
 
