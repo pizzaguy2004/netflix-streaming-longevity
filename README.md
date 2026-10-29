@@ -51,3 +51,5 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 
 * (Un)predictability of Netflix Top 10 Viewership
     * https://www.academia.edu/117612999/_Un_Predictability_of_Netflix_s_Top_10_Viewership
+ 
+*https://www.researchgate.net/publication/392270618_Predictive_Analysis_of_Streaming_Content_Demand_Across_Global_Regions_Using_Aggregated_Ranking_Data
