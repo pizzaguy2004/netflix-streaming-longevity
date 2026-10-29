@@ -49,3 +49,5 @@ This project analyzes the key factors driving the chart longevity of TV shows on
     * https://arxiv.org/pdf/2507.01620
     * Focuses on determining if the top-ranked shows in one country can predict the top-ranked shows in other countries. Concludes viewing patterns are based on popularity strength and regional proximity.
 
+* (Un)predictability of Netflix Top 10 Viewership
+    * https://www.academia.edu/117612999/_Un_Predictability_of_Netflix_s_Top_10_Viewership
