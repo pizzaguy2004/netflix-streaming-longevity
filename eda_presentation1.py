@@ -15,7 +15,7 @@ filtered_df = merged_df.dropna(subset=['tmdb_id_y'])
 print(filtered_df)
 
 
-
+#BAR PLOT OF SPECIFIC GENRE FREQUENCIES. BREAK UP MULLTIPLE GENRE DISCRIPTIONS INTO INDIVIDUAL TO MAKE PLOT CLEANER
 seperated_genres = filtered_df['genres_y'].str.split(', | & ').explode()
 
 counts = seperated_genres.value_counts()
@@ -38,6 +38,7 @@ plt.show()
 
 
 
+#BAR CHART FOR SEASON COUNT
 szn_count = filtered_df['number_of_seasons_y'].value_counts().reset_index()
 
 szn_count.columns = ['# of seasons', 'Count']
@@ -53,6 +54,7 @@ plt.show()
 
 
 
+#BAR CHART FOR TOTAL EPISODE COUNT FOR EACH SHOW TITLE
 ep_count = filtered_df['number_of_episodes_y'].value_counts().reset_index()
 
 ep_count.columns = ['# of episodes', 'Count']
@@ -68,6 +70,7 @@ plt.show()
 
 
 
+#BAR CHART WITH RANGES TO MAKE PREVIOUS PLOT CLEANER
 # chanage the values of the bins if we need to observe a wider range of # of episodes per show title
 bins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, float('inf')]
 
