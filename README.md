@@ -23,7 +23,7 @@ This project analyzes the key factors driving the chart longevity of TV shows on
     Aggregates weekly records from `all-weeks-global.tsv` to calculate each show's maximum chart longevity (`Y = max_weeks`), merges it with TMDB metadata (`X`), cleans missing values, and exports `master_netflix_analysis.csv`.
 * **`eda_presentation1.py`**  
     Computes summary statistics ($N$, mean, standard deviation, min/max) and exports high-resolution figures into the `plots/` directory for presentation slides.
-* **`cox_regression.py`**
+* **`cox_regression_model.py`**
     Run Cox Regression model on Master data. This will give p-values for significant features and create a cox plot to visualize the significance of variables. This model measures the probability of a show with a specific set of features making it past the first, second, third, ... week after it make it into the top 10.
 
 ---
