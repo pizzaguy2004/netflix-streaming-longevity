@@ -32,7 +32,7 @@ final_counts.columns = ['Genre', 'Count']
 
 #bar plot of specific genre frequencies. Breaks up multiple genre discriptions into individual to make plot cleaner.
 plt.figure(figsize=(10,6))
-sns.barplot(data=final_counts, x = 'Count', y = 'Genre', palette = 'muted')
+sns.barplot(data=final_counts, x='Count', y='Genre', hue='Genre', palette='muted', legend=False)
 plt.title('Frequency of Genre ')
 plt.tight_layout()
 plt.show()
@@ -41,7 +41,13 @@ plt.show()
 
 #MATRIX TO COMPARE WHICH GENRES MOST FREQUENTLY PAIR UP TOGETHER
 # Split and merge genre column cleanly
-exploded_df = filtered_df.assign(seperated_genre=filtered_df['genres_y'].str.split(', ')).explode('seperated_genre')
+exploded_df = (
+    filtered_df.assign(
+        seperated_genre=filtered_df['genres_y'].str.split(', ')
+    )
+    .explode('seperated_genre')
+    .reset_index(drop=True)
+)
 
 # Build the  matrix using columns from the same df
 genre_matrix = pd.crosstab(exploded_df['show_title'], exploded_df['seperated_genre'])

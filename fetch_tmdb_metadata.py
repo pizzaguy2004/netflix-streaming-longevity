@@ -1,14 +1,18 @@
-import os
+from pathlib import Path
 import pandas as pd
 import requests
 import time
 
 # downloads netflix datasets locally
-NETFLIX_TSV = "all-weeks-global.tsv"
+DATA_DIR = Path(__file__).resolve().parent / "data"
+NETFLIX_TSV = DATA_DIR / "all-weeks-global.tsv"
 NETFLIX_URL = "https://top10.netflix.com/data/all-weeks-global.tsv"
+SERIES_OUTPUT = DATA_DIR / "netflix_tmdb_metadata.csv"
+SEASON_OUTPUT = DATA_DIR / "netflix_tmdb_season_metadata.csv"
 
-if not os.path.exists(NETFLIX_TSV):
+if not NETFLIX_TSV.exists():
     print("Downloading Netflix Top 10 dataset...")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     response = requests.get(NETFLIX_URL, stream=True)
     response.raise_for_status()
 
@@ -29,7 +33,9 @@ API_KEY = "36455b183a91eb46bcc03c412113d2f1"  # Keep your actual API key here
 
 def get_tv_details(tmdb_id, api_key):
     details_url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?api_key={api_key}"
-    res = requests.get(details_url).json()
+    response = requests.get(details_url, timeout=30)
+    response.raise_for_status()
+    res = response.json()
 
     return {
         "number_of_episodes": res.get("number_of_episodes"),
@@ -42,7 +48,22 @@ def get_tv_details(tmdb_id, api_key):
         "genres": [g["name"] for g in res.get("genres", [])],
         "status": res.get("status"),
         "in_production": res.get("in_production"),
+        "season_numbers": [
+            season.get("season_number")
+            for season in res.get("seasons", [])
+            if season.get("season_number", 0) > 0
+        ],
     }
+
+
+def get_season_details(tmdb_id, season_number, api_key):
+    season_url = (
+        f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/"
+        f"{season_number}?api_key={api_key}"
+    )
+    response = requests.get(season_url, timeout=30)
+    response.raise_for_status()
+    return response.json()
 
 
 # --- 4. FETCH TMDB METADATA FOR UNIQUE SHOWS ---
@@ -52,8 +73,9 @@ unique_shows = netflix_df[netflix_df["category"].str.contains("TV")][
 print(f"Total unique TV shows in dataset: {len(unique_shows)}")
 
 metadata_list = []
+season_metadata_list = []
 
-# Fetch first 50 titles as a test run
+# Fetch show metadata and season-level metadata for each matched TV title.
 for title in unique_shows:
     search_url = f"https://api.themoviedb.org/3/search/tv?api_key={API_KEY}&query={title}"
     res = requests.get(search_url).json()
@@ -78,10 +100,43 @@ for title in unique_shows:
             }
         )
 
+        for season_number in details["season_numbers"]:
+            try:
+                season = get_season_details(show_id, season_number, API_KEY)
+                episodes = season.get("episodes", [])
+                runtimes = [
+                    episode["runtime"]
+                    for episode in episodes
+                    if episode.get("runtime") is not None
+                ]
+                season_metadata_list.append(
+                    {
+                        "show_title": title,
+                        "tmdb_id": show_id,
+                        "season_number": season_number,
+                        "season_name": season.get("name"),
+                        "season_air_date": season.get("air_date"),
+                        "season_episode_count": len(episodes),
+                        "season_vote_average": season.get("vote_average"),
+                        "season_vote_count": season.get("vote_count"),
+                        "avg_episode_runtime": (
+                            sum(runtimes) / len(runtimes) if runtimes else None
+                        ),
+                    }
+                )
+            except requests.RequestException as exc:
+                print(
+                    f"Could not fetch season {season_number} for {title}: {exc}"
+                )
+            time.sleep(0.05)
+
     time.sleep(0.05)  # Rate limiting
 
-# --- 5. SAVE MERGED PREDICTOR DATASET ---
+# saves merged data
 tmdb_df = pd.DataFrame(metadata_list)
-tmdb_df.to_csv("netflix_tmdb_metadata.csv", index=False)
-print("Saved enriched metadata to netflix_tmdb_metadata.csv!")
+tmdb_df.to_csv(SERIES_OUTPUT, index=False)
+season_df = pd.DataFrame(season_metadata_list)
+season_df.to_csv(SEASON_OUTPUT, index=False)
+print(f"Saved show metadata to {SERIES_OUTPUT}!")
+print(f"Saved season metadata to {SEASON_OUTPUT}!")
 print(tmdb_df.head())
