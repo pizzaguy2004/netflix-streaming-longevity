@@ -48,8 +48,12 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 * Patterns and Dynamics of Netflix Show Popularity
     * https://arxiv.org/pdf/2507.01620
     * Focuses on determining if the top-ranked shows in one country can predict the top-ranked shows in other countries. Concludes viewing patterns are based on popularity strength and regional proximity.
-
 * (Un)predictability of Netflix Top 10 Viewership
-    * https://www.academia.edu/117612999/_Un_Predictability_of_Netflix_s_Top_10_Viewership
- 
+    * https://www.academia.edu/117612999/_Un_Predictability_of_Netflix_s_Top_10_Viewership 
 *https://www.researchgate.net/publication/392270618_Predictive_Analysis_of_Streaming_Content_Demand_Across_Global_Regions_Using_Aggregated_Ranking_Data
+
+*Prediciting success of a show: https://pmc.ncbi.nlm.nih.gov/articles/PMC6874063/
+
+* Deconstructing global streaming audiences using Netflix top 10
+    * https://www.tandfonline.com/doi/full/10.1080/10714421.2024.2442207#d1e590
+    * This is the most academic and peer reviewed source, but I'm also struggling to understand what it means, so I will have to do that before putting it on the slides and connecting it to our project. 
