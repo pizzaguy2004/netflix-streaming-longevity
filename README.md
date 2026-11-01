@@ -4,7 +4,7 @@
 This project analyzes the key factors driving the chart longevity of TV shows on Netflix. By combining historical weekly global chart data from Netflix with external metadata from The Movie Database (TMDB) and IMDb, we apply exploratory data analysis, survival analysis, and statistical regression to quantify how content characteristics (such as genre, runtime, episode count, and season count) and audience ratings influence how long a show remains in the Global Top 10.
 
 ## Research Questions
-* **Question 1:** Which structural content features (e.g., genre tag, episode count, season count) and audience feedback signals (e.g., rating score, review volume) most significantly influence how many weeks a TV show remains in the Netflix Global Top 10?
+* **Question 1:** Which content features (e.g., genre tag, episode count, season count) and audience feedback signals (e.g., rating score, review volume) most significantly influence how many weeks a TV show remains in the Netflix Global Top 10?
 * **Question 2:** Do multi-season TV shows sustain chart longevity longer than single-season limited series, and does higher audience rating help prevent viewer decay across subsequent seasons?
 
 ## Project Goals
@@ -20,7 +20,7 @@ This project analyzes the key factors driving the chart longevity of TV shows on
 * **`fetch_tmdb_metadata.py`** 
     Downloads the official Netflix TSV dataset (if not present) and queries the TMDB REST API to extract metadata (genres, episode/season counts, ratings, original language) for all unique TV titles.
 * **`build_master_dataset.py`** 
-    Aggregates weekly records from `all-weeks-global.tsv` to calculate each show's maximum chart longevity (`Y = max_weeks`), merges it with TMDB metadata (`X`), cleans missing values, and exports `master_netflix_analysis.csv`.
+    Aggregates weekly records from `all-weeks-global.tsv` to calculate each show's first-run elapsed chart duration (`Y = duration_weeks`), using a four-week absence to define a confirmed exit and censoring runs still in progress at the dataset end. It merges this outcome with TMDB metadata (`X`) and exports `master_netflix_analysis.csv`.
 * **`eda_presentation1.py`**  
     Computes summary statistics ($N$, mean, standard deviation, min/max) and exports high-resolution figures into the `plots/` directory for presentation slides.
 * **`cox_regression_model.py`**

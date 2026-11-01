@@ -14,8 +14,8 @@ formula = (
     "vote_average + vote_count + number_of_episodes + number_of_seasons"
 )
 
-# fits data with cox regression. max_weeks is response variable and event observed determines if show left top 10 before last date in dataset
-cph.fit(master, duration_col='max_weeks', event_col = "event_observed", formula = formula)
+# Duration is elapsed calendar weeks in the first chart run; event_observed marks a confirmed exit.
+cph.fit(master, duration_col='duration_weeks', event_col = "event_observed", formula = formula)
 
 # summary statistics that give significance levels for each variable and whether tv shows with that specific category have a signifiantly different longevity performance in the netflix top 10
 cph.print_summary()
