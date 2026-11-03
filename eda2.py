@@ -7,12 +7,16 @@ wks_g = pd.read_csv('data/all-weeks-global.tsv', sep='\t')
 mast_ntflx = pd.read_csv('data/master_netflix_analysis.csv')
 ntflx_tmbd = pd.read_csv('data/netflix_tmdb_metadata.csv')
 
-#Kaplan-Meier Survival Analysis
+
+
+#Kaplan-Meier Survival Analysis Plot
 kmf = KaplanMeierFitter()
 kmf.fit(durations= mast_ntflx['duration_weeks'], event_observed= mast_ntflx['event_observed'])
 kmf.plot_survival_function()
 #plt.show()
 plt.close()
+
+
 
 #Kaplan-Meier Survival Analysis by Original Language
 #kmf = KaplanMeierFitter()
@@ -26,6 +30,8 @@ plt.close()
   #kmf.plot_survival_function()
 #plt.show()
 plt.close()
+
+
 
 #Number of shows by first air date month
 month_counts = {}
@@ -48,6 +54,7 @@ plt.ylabel('Number of Shows')
 plt.title('Number of Shows by First Air Date Month')
 #plt.show()
 plt.close()
+
 
 #Average show longevity by month
 month_longevity = {}
@@ -73,6 +80,8 @@ plt.title('Average Show Longevity by First Air Date Month')
 #plt.show()
 plt.close()
 
+
+
 #Plot of original language and average longevity
 original_language_count = {}
 original_language_avg_longevity = {}
@@ -87,7 +96,7 @@ for i, j in zip(mast_ntflx['original_language'], mast_ntflx['duration_weeks']):
         original_language_avg_longevity[i] = j
 
 original_language_avg_longevity = {lang: total / original_language_count[lang] for lang, total in original_language_avg_longevity.items()}
-original_language_avg_longevity = dict(sorted(original_language_avg_longevity.items()))
+original_language_avg_longevity = dict(sorted(original_language_avg_longevity.items(), key=lambda item: item[1], reverse=True))
 print(original_language_avg_longevity)
 
 plt.figure(figsize=(10, 6))
@@ -95,8 +104,11 @@ plt.bar(original_language_avg_longevity.keys(), original_language_avg_longevity.
 plt.xlabel('Original Language')
 plt.ylabel('Average Longevity (Weeks)')
 plt.title('Average Show Longevity by Original Language')
-#plt.show()
+plt.show()
 plt.close()
+
+
+
 
 #Average show rating by longevity weeks
 longevity_weeks_count = {}
@@ -129,3 +141,5 @@ plt.ylabel('Average Rating')
 plt.title('Average Show Rating by Longevity (Weeks)')
 #plt.show()
 plt.close()
+
+
