@@ -7,13 +7,14 @@ wks_g = pd.read_csv('data/all-weeks-global.tsv', sep='\t')
 mast_ntflx = pd.read_csv('data/master_netflix_analysis.csv')
 ntflx_tmbd = pd.read_csv('data/netflix_tmdb_metadata.csv')
 
-
 #Kaplan-Meier Survival Analysis
 kmf = KaplanMeierFitter()
 kmf.fit(durations= mast_ntflx['duration_weeks'], event_observed= mast_ntflx['event_observed'])
 kmf.plot_survival_function()
-plt.show()
+#plt.show()
+plt.close()
 
+#Kaplan-Meier Survival Analysis by Original Language
 #kmf = KaplanMeierFitter()
 #for og_language in mast_ntflx['original_language'].unique():
   #mask = mast_ntflx['original_language'] == og_language
@@ -24,3 +25,50 @@ plt.show()
   #)
   #kmf.plot_survival_function()
 #plt.show()
+plt.close()
+
+#Number of shows by first air date month
+month_counts = {}
+for i in mast_ntflx['first_air_date']:
+    if i is None or isinstance(i, float):
+        continue
+    month = i[5:7]
+    if month in month_counts:
+        month_counts[month] += 1
+    else:
+        month_counts[month] = 1
+print(month_counts)
+sorted_month_counts = dict(sorted(month_counts.items()))
+print(sorted_month_counts)
+
+plt.figure(figsize=(10, 6))
+plt.bar(sorted_month_counts.keys(), sorted_month_counts.values())
+plt.xlabel('Month')
+plt.ylabel('Number of Shows')
+plt.title('Number of Shows by First Air Date Month')
+#plt.show()
+plt.close()
+
+#Average show longevity by month
+month_longevity = {}
+for i, j in zip(mast_ntflx['first_air_date'], mast_ntflx['duration_weeks']) :
+    if i is None or isinstance(i, float):
+        continue
+    month = i[5:7]
+    if month in month_longevity:
+        month_longevity[month] += j
+    else:
+        month_longevity[month] = j
+
+
+average_longevity = {month: total / month_counts[month] for month, total in month_longevity.items()}
+average_longevity = dict(sorted(average_longevity.items()))
+print(average_longevity)
+
+plt.figure(figsize=(10, 6))
+plt.bar(average_longevity.keys(), average_longevity.values())
+plt.xlabel('Month')
+plt.ylabel('Average Longevity (Weeks)')
+plt.title('Average Show Longevity by First Air Date Month')
+#plt.show()
+plt.close()
