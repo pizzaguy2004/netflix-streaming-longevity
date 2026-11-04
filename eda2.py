@@ -99,12 +99,24 @@ original_language_avg_longevity = {lang: total / original_language_count[lang] f
 original_language_avg_longevity = dict(sorted(original_language_avg_longevity.items(), key=lambda item: item[1], reverse=True))
 print(original_language_avg_longevity)
 
+original_language_count = dict(sorted(original_language_count.items(), key=lambda item: item[1], reverse=True))
+
+plt.figure(figsize=(10, 6))
+plt.bar(original_language_count.keys(), original_language_count.values())
+plt.xlabel('Original Language')
+plt.ylabel('Number of Shows')
+plt.title('Number of Shows by Original Language')
+#plt.show()
+plt.close()
+
+
+
 plt.figure(figsize=(10, 6))
 plt.bar(original_language_avg_longevity.keys(), original_language_avg_longevity.values())
 plt.xlabel('Original Language')
 plt.ylabel('Average Longevity (Weeks)')
 plt.title('Average Show Longevity by Original Language')
-plt.show()
+#plt.show()
 plt.close()
 
 
@@ -143,3 +155,32 @@ plt.title('Average Show Rating by Longevity (Weeks)')
 plt.close()
 
 
+
+
+#Plot of peak rank by longevity weeks
+
+peak_rank_longevity = {}
+peak_rank_count = {}
+for i, j in zip(mast_ntflx['duration_weeks'], mast_ntflx['peak_rank']):
+    if i in peak_rank_longevity:
+        peak_rank_longevity[i] += j
+        peak_rank_count[i] += 1
+    else:
+        peak_rank_longevity[i] = j
+        peak_rank_count[i] = 1
+
+peak_rank_longevity = {week: peak_rank_longevity[week] / peak_rank_count[week] for week in peak_rank_longevity}
+peak_rank_longevity = dict(sorted(peak_rank_longevity.items()))
+print(peak_rank_longevity)
+
+plt.figure(figsize=(10, 6))
+plt.plot(peak_rank_longevity.keys(), peak_rank_longevity.values())
+plt.xlabel('Longevity (Weeks)')
+plt.ylabel('Average Peak Rank')
+plt.title('Average Peak Rank by Longevity (Weeks)')
+plt.gca().invert_yaxis()
+plt.show()
+plt.close()
+
+
+#Plot of shows released by month and year
