@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from lifelines import KaplanMeierFitter
+import numpy as np
 
 wks_g = pd.read_csv('data/all-weeks-global.tsv', sep='\t')
 mast_ntflx = pd.read_csv('data/master_netflix_analysis.csv')
@@ -179,8 +180,70 @@ plt.xlabel('Longevity (Weeks)')
 plt.ylabel('Average Peak Rank')
 plt.title('Average Peak Rank by Longevity (Weeks)')
 plt.gca().invert_yaxis()
-plt.show()
+#plt.show()
 plt.close()
 
 
 #Plot of shows released by month and year
+shows_by_month_year = {}    
+for i in mast_ntflx['first_air_date']:
+    if i is None or isinstance(i, float):
+        continue
+    month = i[5:7]
+    year = i[:4]
+    month_year = f"{year}-{month}"
+    if month_year in shows_by_month_year and int(year) >= 2016:
+        shows_by_month_year[month_year] += 1
+    elif int(year) >= 2016:
+        shows_by_month_year[month_year] = 1
+    else:
+        continue
+show_by_month_year = dict(sorted(shows_by_month_year.items()))
+
+plt.figure(figsize=(10, 6))
+keys = list(show_by_month_year.keys())
+values = list(show_by_month_year.values())
+plt.plot(keys, values)
+tick_positions = [i for i, k in enumerate(keys) if k.endswith('-01')]
+tick_labels = [keys[i][:4] for i in tick_positions]
+plt.xticks(ticks=tick_positions, labels=tick_labels, rotation=45)
+plt.xlabel('Year')
+plt.ylabel('Number of Shows')
+plt.title('Number of Shows Released by Month and Year')
+plt.tight_layout()
+#plt.show()
+plt.close()
+
+
+#Correlation Heatmap of Relavant Numeric Variables
+numeric_cols = [
+    'duration_weeks',
+    'total_hours',
+    'peak_rank',
+    'vote_average',
+    'vote_count',
+    'number_of_seasons', 
+    'number_of_episodes',
+    ]
+
+corr = mast_ntflx[numeric_cols].corr(method='pearson')  # or 'spearman' for rank order
+
+plt.figure(figsize=(9, 7))
+sns.heatmap(
+    corr,
+    annot=True,  
+    fmt='.2f',  
+    cmap='coolwarm',  
+    vmin=-1,
+    vmax=1,
+    square=True, 
+    linewidths=0.5, 
+    cbar_kws={'shrink': 0.8},
+)
+
+plt.title('Correlation Matrix of Numeric Features', fontsize=14, pad=15)
+plt.xticks(rotation=45, ha='right')
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+plt.close()
