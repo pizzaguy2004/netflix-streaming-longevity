@@ -245,5 +245,55 @@ plt.title('Correlation Matrix of Numeric Features', fontsize=14, pad=15)
 plt.xticks(rotation=45, ha='right')
 plt.yticks(rotation=0)
 plt.tight_layout()
-plt.show()
+#plt.show()
+plt.close()
+
+
+
+#Scatter plot of duration and hours 
+
+plt.figure(figsize=(10, 6))
+plt.scatter(mast_ntflx['duration_weeks'], mast_ntflx['number_of_episodes'])
+plt.xlabel('Longevity (Weeks)')
+plt.ylabel('Number of Episodes')
+plt.title('Number of Episodes vs Longevity (Weeks)')
+#plt.show()
+plt.close()
+
+plt.figure(figsize=(10, 6))
+plt.scatter(mast_ntflx['duration_weeks'], mast_ntflx['vote_average'])
+plt.xlabel('Longevity (Weeks)')
+plt.ylabel('Vote Average')
+plt.title('Vote Average vs Longevity (Weeks)')
+#plt.show()
+plt.close()
+
+plt.figure(figsize=(10, 6))
+plt.scatter(mast_ntflx['duration_weeks'], mast_ntflx['number_of_seasons'])
+plt.xlabel('Longevity (Weeks)')
+plt.ylabel('Number of Seasons')
+plt.title('Number of Seasons vs Longevity (Weeks)')
+#plt.show()
+plt.close()
+
+#Bar plot of average longevity for multi vs single season shows
+season_longevity = {'single': 0, 'multi': 0}
+season_count = {'single': 0, 'multi': 0}
+for i, j in zip(mast_ntflx['duration_weeks'], mast_ntflx['number_of_seasons']):
+    if j == 1:
+        season_longevity['single'] += i
+        season_count['single'] += 1
+    else:
+        season_longevity['multi'] += i
+        season_count['multi'] += 1
+
+season_longevity = {season: season_longevity[season] / season_count[season] for season in season_longevity}
+print(season_longevity)
+
+plt.figure(figsize=(10, 6))
+plt.bar(season_longevity.keys(), season_longevity.values())
+plt.xlabel('Season Type')
+plt.ylabel('Average Longevity (Weeks)')
+plt.title('Average Longevity by Season Type')
+#plt.show()
 plt.close()
