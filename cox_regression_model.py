@@ -1,25 +1,56 @@
-# initial cox regression model test to determine validity of research question and data
+from pathlib import Path
+
 import pandas as pd
-import matplotlib.pyplot as plt
 from lifelines import CoxPHFitter
 
-master = pd.read_csv("master_netflix_analysis.csv")
 
-master = master.drop(columns = ["show_title", "tmdb_id", "genres", "total_hours", "peak_rank"])
+ROOT = Path(__file__).resolve().parent
+MASTER_PATH = ROOT / "data" / "master_netflix_analysis.csv"
+SUMMARY_PATH = ROOT / "cox_regression_summary.csv"
 
-cph = CoxPHFitter()
 
-formula = (
-    "C(primary_genre) + C(original_language) + "
-    "vote_average + vote_count + number_of_episodes + number_of_seasons"
-)
+def main() -> None:
+    master = pd.read_csv(MASTER_PATH)
 
-# Duration is elapsed calendar weeks in the first chart run; event_observed marks a confirmed exit.
-cph.fit(master, duration_col='duration_weeks', event_col = "event_observed", formula = formula)
+    release_date = pd.to_datetime(master["first_air_date"], errors="coerce")
+    master["release_month"] = release_date.dt.month.astype("Int64").astype("string")
+    master["release_year_decade"] = (release_date.dt.year - 2020) / 10
 
-# summary statistics that give significance levels for each variable and whether tv shows with that specific category have a signifiantly different longevity performance in the netflix top 10
-cph.print_summary()
+    model_data = master.loc[release_date.notna(), [
+        "duration_weeks",
+        "event_observed",
+        "primary_genre",
+        "original_language",
+        "vote_average",
+        "number_of_seasons",
+        "number_of_episodes",
+        "release_month",
+        "release_year_decade",
+    ]].copy()
 
-# creates plot showing impact of each variable
-cph.plot()
-plt.show()
+    formula = (
+        "C(primary_genre) + C(original_language) + vote_average + "
+        "number_of_seasons + number_of_episodes + C(release_month) + "
+        "release_year_decade"
+    )
+
+    cph = CoxPHFitter()
+    cph.fit(
+        model_data,
+        duration_col="duration_weeks",
+        event_col="event_observed",
+        formula=formula,
+    )
+
+    cph.print_summary()
+    cph.summary.to_csv(SUMMARY_PATH, index_label="term")
+    print(f"Saved model summary to {SUMMARY_PATH}")
+    print(
+        f"Model sample: {len(model_data)} shows; "
+        f"{int(model_data['event_observed'].sum())} confirmed exits; "
+        f"{int((model_data['event_observed'] == 0).sum())} censored."
+    )
+
+
+if __name__ == "__main__":
+    main()

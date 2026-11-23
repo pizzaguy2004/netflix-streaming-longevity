@@ -8,26 +8,17 @@ summary = master.info()
 
 # drops non-relevant columns from summary stats dataframe
 stats = stats.drop(
-    columns=["number_of_episodes", "tmdb_id", "event_observed"]
+    columns=["tmdb_id", "event_observed", "total_hours", "peak_rank", "vote_count"]
 )
 stats = stats.drop(index="count")
-
-# Use presentation-friendly labels and units.
-stats["total_hours"] = stats["total_hours"] / 1_000_000
 stats = stats.rename(
-    index={"50%": "Median"},
     columns={
-        "duration_weeks": "First-run duration (weeks)",
-        "total_hours": "Total hours viewed (millions)",
-        "peak_rank": "Best chart rank",
-        "vote_average": "TMDB rating",
-        "vote_count": "TMDB vote count",
-        "number_of_seasons": "TMDB seasons (current)",
-    },
-).round(1)
-stats[["TMDB vote count", "TMDB seasons (current)"]] = stats[
-    ["TMDB vote count", "TMDB seasons (current)"]
-].round(0)
+        "duration_weeks": "Chart duration (weeks)",
+        "vote_average": "TMDB rating (out of 10)",
+        "number_of_episodes": "Number of episodes",
+        "number_of_seasons": "Number of seasons",
+    }
+)
 
 fig, ax = plt.subplots(figsize=(12, 4))
 ax.axis('tight')
