@@ -26,6 +26,7 @@ FORMULA = ("C(genre) + C(lang) + vote_average_z + log_episodes_z + "
 
 def load_model_data() -> pd.DataFrame:
     df = pd.read_csv(MASTER_PATH)
+    input_n = len(df)
     release = pd.to_datetime(df["first_air_date"], errors="coerce")
     df = df.loc[release.notna()].copy()
     release = release.loc[df.index]
@@ -36,6 +37,11 @@ def load_model_data() -> pd.DataFrame:
     for col in ["vote_average", "number_of_episodes", "number_of_seasons"]:
         df.loc[df[col] == 0, col] = np.nan
     df = df.dropna(subset=["vote_average", "number_of_episodes", "number_of_seasons"])
+    metadata_filtered_n = len(df)
+
+    # Keep confirmed exits only; event_observed == 0 marks right-censored shows.
+    censored_dropped_n = int((df["event_observed"] == 0).sum())
+    df = df.loc[df["event_observed"] == 1].copy()
 
     # Language: English is the reference; everything beyond the top 4 -> "other".
     df["lang"] = np.where(df["original_language"].isin(TOP_LANGS), df["original_language"], "other")
@@ -52,6 +58,9 @@ def load_model_data() -> pd.DataFrame:
     df["log_episodes"] = np.log(df["number_of_episodes"])
     for col in ["vote_average", "log_episodes", "number_of_seasons"]:
         df[col + "_z"] = (df[col] - df[col].mean()) / df[col].std()
+    df.attrs["input_n"] = input_n
+    df.attrs["metadata_dropped_n"] = input_n - metadata_filtered_n
+    df.attrs["censored_dropped_n"] = censored_dropped_n
     return df
 
 
@@ -69,8 +78,12 @@ def main() -> None:
     cph.print_summary()
     cph.summary.to_csv(SUMMARY_PATH, index_label="term")
 
-    print(f"\nn = {len(df)} shows; {int(df['event_observed'].sum())} exits; "
-          f"{int((df['event_observed'] == 0).sum())} censored (kept in model)")
+    print(f"\nn = {len(df)} shows retained; {int(df['event_observed'].sum())} confirmed exits; "
+          f"{int((df['event_observed'] == 0).sum())} censored")
+    print(f"Dropped overall: {df.attrs['input_n'] - len(df)} of {df.attrs['input_n']} shows "
+          f"({df.attrs['metadata_dropped_n']} for missing release date and/or "
+          f"placeholder predictors, and "
+          f"{df.attrs['censored_dropped_n']} right-censored shows)")
     print(f"Concordance index (in-sample): {cph.concordance_index_:.3f}")
 
     ph = proportional_hazard_test(cph, df[cols], time_transform="rank").summary
