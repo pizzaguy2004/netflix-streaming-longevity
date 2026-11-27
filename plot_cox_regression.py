@@ -1,160 +1,95 @@
-# Creates an interpretable forest plot from the saved Cox model summary.
+# Forest plots for the Cox model (run cox_regression_model.py first).
 
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
+from cox_regression_model import load_model_data
 
 ROOT = Path(__file__).resolve().parent
-SUMMARY = ROOT / "cox_regression_summary.csv"
-OUTPUT = ROOT / "cox_regression_forest_plot.png"
-TIMING_OUTPUT = ROOT / "cox_regression_release_timing_plot.png"
+SUMMARY = ROOT / "cox_regression_summary_v2.csv"
+GREEN, GRAY = "#147D64", "#8A94A6"
+MONTHS = {"2": "Feb", "3": "Mar", "4": "Apr", "5": "May", "6": "Jun", "7": "Jul",
+          "8": "Aug", "9": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"}
 
 
-def create_release_timing_plot(results: pd.DataFrame) -> None:
-    """Plot release-year and release-month estimates separately."""
-    results = results[
-        results["term"].str.startswith("C(release_month)")
-        | results["term"].eq("release_year_decade")
-    ].copy()
-
-    def make_label(term: str) -> str:
-        if term == "release_year_decade":
-            return "Release year (+10 years)"
-        value = term.split("[T.", 1)[1].rstrip("]")
-        month_names = {
-            "2": "February", "3": "March", "4": "April", "5": "May",
-            "6": "June", "7": "July", "8": "August", "9": "September",
-            "10": "October", "11": "November", "12": "December",
-        }
-        return f"Release month: {month_names[value]}"
-
-    results["label"] = results["term"].map(make_label)
-    results["hr"] = results["coef"].map(__import__("math").exp)
-    results["lo"] = results["coef lower 95%"].map(__import__("math").exp)
-    results["hi"] = results["coef upper 95%"].map(__import__("math").exp)
-    results["significant"] = results["p"] < 0.05
-    # Order months chronologically, followed by the continuous release-year effect.
-    results["group_order"] = results["term"].eq("release_year_decade").astype(int)
-    results["month_order"] = results["term"].map(
-        lambda term: int(term.split("[T.", 1)[1].rstrip("]"))
-        if term.startswith("C(release_month)") else 0
-    )
-    results = results.sort_values(["group_order", "month_order"]).reset_index(drop=True)
-
-    fig, ax = plt.subplots(figsize=(9, 7))
-    y = range(len(results))
-    colors = ["#147D64" if sig else "#8A94A6" for sig in results["significant"]]
-    for yi, (_, row), color in zip(y, results.iterrows(), colors):
-        ax.errorbar(
-            row["hr"], yi,
-            xerr=[[row["hr"] - row["lo"]], [row["hi"] - row["hr"]]],
-            fmt="o", color=color, ecolor=color, capsize=2, markersize=4,
-            linewidth=1.2,
-        )
-
+def forest(rows, title, footnote, out, xlim, ticks, figsize=(9, 5.5)):
+    """rows: list of (label, hr, lo, hi, p) -> forest plot on a log axis."""
+    fig, ax = plt.subplots(figsize=figsize)
+    for i, (_, hr, lo, hi, p) in enumerate(rows):
+        color = GREEN if p < 0.05 else GRAY
+        ax.errorbar(hr, i, xerr=[[hr - lo], [hi - hr]], fmt="o", color=color,
+                    ecolor=color, capsize=3, markersize=6, linewidth=1.8)
     ax.axvline(1, color="#333333", linestyle="--", linewidth=1)
     ax.set_xscale("log")
-    ax.set_xlim(0.05, 10)
-    ax.set_yticks(list(y), results["label"])
+    ax.set_xlim(*xlim)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(t) for t in ticks])
+    ax.minorticks_off()
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([r[0] for r in rows], fontsize=11)
     ax.invert_yaxis()
-    ax.axhline(10.5, color="#B8C0CC", linewidth=0.9)
-    ax.set_xlabel("Adjusted hazard ratio (95% confidence interval; log scale)")
-    ax.set_title("Release timing and Top 10 exit", loc="left", pad=14)
-    ax.grid(axis="x", which="major", color="#D9DEE7", linewidth=0.8)
+    ax.set_ylim(len(rows) - 0.5, -0.5)
+    ax.set_xlabel("Adjusted hazard ratio (95% CI, log scale)")
+    ax.grid(axis="x", color="#D9DEE7", linewidth=0.8)
     ax.set_axisbelow(True)
-
-    ax.text(
-        0.01, -0.14,
-        "Months compare with January (the reference month, so it has no dot). "
-        "Above 1 = faster exit; below 1 = slower exit. Green: p < .05.",
-        transform=ax.transAxes, fontsize=8.5, color="#4B5563", va="top",
-    )
-    ax.text(
-        0.01, -0.21,
-        "Associations are adjusted for the other model variables; they are not causal effects.",
-        transform=ax.transAxes, fontsize=8.5, color="#4B5563", va="top",
-    )
-    fig.subplots_adjust(left=0.33, right=0.96, top=0.92, bottom=0.28)
-    fig.savefig(TIMING_OUTPUT, dpi=200, bbox_inches="tight", facecolor="white")
+    # direction cues just above the plot, either side of HR = 1
+    tr = ax.get_xaxis_transform()
+    ax.text(0.97, 1.02, "\u2190 slower exit", ha="right", va="bottom", transform=tr,
+            fontsize=10, color="#4B5563")
+    ax.text(1.03, 1.02, "faster exit \u2192", ha="left", va="bottom", transform=tr,
+            fontsize=10, color="#4B5563")
+    ax.set_title(title, loc="left", pad=28, fontsize=13)
+    fig.text(0.01, 0.005, footnote, fontsize=8.5, color="#4B5563", va="bottom")
+    fig.subplots_adjust(left=0.30, right=0.96, top=0.86, bottom=0.2)
+    fig.savefig(out, dpi=200, facecolor="white")
     plt.close(fig)
-    print(f"Saved {TIMING_OUTPUT}")
+    print(f"Saved {out}")
 
 
 def main() -> None:
-    all_results = pd.read_csv(SUMMARY)
-    create_release_timing_plot(all_results)
-    results = all_results.copy()
-    # keeps the main predictors. English only and release timing has own plot.
-    results = results[
-        ~results["term"].str.startswith("C(release_month)")
-        & ~results["term"].eq("release_year_decade")
-        & ~results["term"].str.startswith("C(original_language)")
-        | results["term"].eq("C(original_language)[T.en]")
-    ].copy()
+    s = pd.read_csv(SUMMARY).set_index("term")
+    df = load_model_data()
+    n_genre = df["genre"].value_counts()
 
-    # rescale continuous predictors to units that are easier to explain.
-    units = {
-        "vote_average": (1, "TMDB rating (+1 point)"),
-        "number_of_episodes": (10, "Episodes (+10 episodes)"),
-        "number_of_seasons": (1, "Seasons (+1 season)"),
-    }
-    labels = []
-    for _, row in results.iterrows():
-        term = row["term"]
-        if term in units:
-            multiplier, label = units[term]
-            results.loc[row.name, "coef"] *= multiplier
-            results.loc[row.name, "coef lower 95%"] *= multiplier
-            results.loc[row.name, "coef upper 95%"] *= multiplier
-            labels.append(label)
-        elif term == "C(original_language)[T.en]":
-            labels.append("Language: English")
-        else:
-            genre = term.split("[T.", 1)[1].rstrip("]")
-            labels.append(f"Genre: {genre}")
-    results["label"] = labels
-    results["hr"] = results["coef"].apply(lambda x: __import__("math").exp(x))
-    results["lo"] = results["coef lower 95%"].apply(lambda x: __import__("math").exp(x))
-    results["hi"] = results["coef upper 95%"].apply(lambda x: __import__("math").exp(x))
-    results["significant"] = results["p"] < 0.05
-    results = results.sort_values("hr", ascending=True).reset_index(drop=True)
+    def row(term, label):
+        r = s.loc[term]
+        return (label, r["exp(coef)"], r["exp(coef) lower 95%"], r["exp(coef) upper 95%"], r["p"])
 
-    fig_height = max(7, 0.34 * len(results) + 2.3)
-    fig, ax = plt.subplots(figsize=(11, fig_height))
-    y = range(len(results))
-    colors = ["#147D64" if sig else "#8A94A6" for sig in results["significant"]]
-    for yi, (_, row), color in zip(y, results.iterrows(), colors):
-        ax.errorbar(
-            row["hr"], yi,
-            xerr=[[row["hr"] - row["lo"]], [row["hi"] - row["hr"]]],
-            fmt="o", color=color, ecolor=color, capsize=2.5, markersize=5,
-            linewidth=1.5,
-        )
+    # --- genres (reference = Drama), sorted by hazard ratio, n in label
+    g = [row(t, f"{t.split('[T.')[1].rstrip(']')} (n={n_genre[t.split('[T.')[1].rstrip(']')]})")
+         for t in s.index if t.startswith("C(genre)")]
+    g.sort(key=lambda r: -r[1])
+    forest(g, "Genre and Top 10 exit",
+           f"Compared with Drama (n={n_genre['Drama']}). Green: p < .05. Genres with < 20 shows pooled "
+           "into 'Other'. Adjusted for all model variables; associations, not causal effects.",
+           ROOT / "cox_forest_genre_v2.png", (0.4, 4), [0.5, 1, 2, 4])
 
-    ax.axvline(1, color="#333333", linestyle="--", linewidth=1)
-    ax.set_xscale("log")
-    ax.set_yticks(list(y), results["label"])
-    ax.set_xlabel("Adjusted hazard ratio (95% confidence interval; log scale)")
-    ax.set_title("Features associated with faster or slower exit from Netflix Global Top 10", loc="left", pad=16)
-    ax.grid(axis="x", which="major", color="#D9DEE7", linewidth=0.8)
-    ax.set_axisbelow(True)
-    ax.text(
-        0.01, -0.085,
-        "Above 1 = faster exit; below 1 = slower exit. Green: p < .05. "
-        "Genre estimates compare with Action & Adventure; English compares with Arabic.",
-        transform=ax.transAxes, fontsize=9, color="#4B5563", va="top",
-    )
-    ax.text(
-        0.01, -0.12,
-        "Model adjusts for genre, language, rating, episodes, seasons, and release month/year. "
-        "Associations are not causal effects.",
-        transform=ax.transAxes, fontsize=9, color="#4B5563", va="top",
-    )
-    fig.subplots_adjust(left=0.33, right=0.96, top=0.94, bottom=0.16)
-    fig.savefig(OUTPUT, dpi=200, bbox_inches="tight", facecolor="white")
-    print(f"Saved {OUTPUT}")
+    # --- predictors (continuous per 1 SD, language vs English)
+    sd = {"vote_average_z": df["vote_average"].std(), "log_episodes_z": df["log_episodes"].std(),
+          "number_of_seasons_z": df["number_of_seasons"].std()}
+    p = [
+        row("vote_average_z", f"TMDB rating (+1 SD = {sd['vote_average_z']:.1f} pts)"),
+        row("log_episodes_z", "Log episodes (+1 SD)"),
+        row("number_of_seasons_z", f"Seasons (+1 SD = {sd['number_of_seasons_z']:.1f})"),
+        row("C(lang)[T.ko]", "Korean (vs English)"),
+        row("C(lang)[T.es]", "Spanish (vs English)"),
+        row("C(lang)[T.ja]", "Japanese (vs English)"),
+        row("C(lang)[T.other]", "Other language (vs English)"),
+    ]
+    forest(p, "Ratings, length, and language and Top 10 exit",
+           "Continuous predictors are standardized (per 1 SD); episodes are log-transformed. "
+           "Green: p < .05. Adjusted for genre and release timing; not causal.",
+           ROOT / "cox_forest_predictors_v2.png", (0.5, 1.8), [0.5, 0.7, 1, 1.4], figsize=(9, 4.8))
+
+    # --- timing appendix
+    t = [row(f"C(release_month)[T.{m}]", f"{name} (vs Jan)") for m, name in MONTHS.items()]
+    t.append(row("release_year_decade", "Release year (+10 years)"))
+    forest(t, "Release timing and Top 10 exit",
+           "Months compare with January. Green: p < .05. Controls only; not causal.",
+           ROOT / "cox_forest_timing_v2.png", (0.4, 2), [0.5, 1, 2], figsize=(9, 6.5))
 
 
 if __name__ == "__main__":
