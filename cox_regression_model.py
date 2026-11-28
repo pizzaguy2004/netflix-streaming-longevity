@@ -38,10 +38,7 @@ def load_model_data() -> pd.DataFrame:
         df.loc[df[col] == 0, col] = np.nan
     df = df.dropna(subset=["vote_average", "number_of_episodes", "number_of_seasons"])
     metadata_filtered_n = len(df)
-
-    # Keep confirmed exits only; event_observed == 0 marks right-censored shows.
-    censored_dropped_n = int((df["event_observed"] == 0).sum())
-    df = df.loc[df["event_observed"] == 1].copy()
+    censored_kept_n = int((df["event_observed"] == 0).sum())
 
     # Language: English is the reference; everything beyond the top 4 -> "other".
     df["lang"] = np.where(df["original_language"].isin(TOP_LANGS), df["original_language"], "other")
@@ -60,7 +57,7 @@ def load_model_data() -> pd.DataFrame:
         df[col + "_z"] = (df[col] - df[col].mean()) / df[col].std()
     df.attrs["input_n"] = input_n
     df.attrs["metadata_dropped_n"] = input_n - metadata_filtered_n
-    df.attrs["censored_dropped_n"] = censored_dropped_n
+    df.attrs["censored_kept_n"] = censored_kept_n
     return df
 
 
@@ -79,11 +76,9 @@ def main() -> None:
     cph.summary.to_csv(SUMMARY_PATH, index_label="term")
 
     print(f"\nn = {len(df)} shows retained; {int(df['event_observed'].sum())} confirmed exits; "
-          f"{int((df['event_observed'] == 0).sum())} censored")
+          f"{int((df['event_observed'] == 0).sum())} right-censored (kept in model)")
     print(f"Dropped overall: {df.attrs['input_n'] - len(df)} of {df.attrs['input_n']} shows "
-          f"({df.attrs['metadata_dropped_n']} for missing release date and/or "
-          f"placeholder predictors, and "
-          f"{df.attrs['censored_dropped_n']} right-censored shows)")
+          f"({df.attrs['metadata_dropped_n']} for missing release date and/or placeholder predictors)")
     print(f"Concordance index (in-sample): {cph.concordance_index_:.3f}")
 
     ph = proportional_hazard_test(cph, df[cols], time_transform="rank").summary
