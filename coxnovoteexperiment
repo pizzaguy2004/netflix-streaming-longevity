@@ -1,0 +1,202 @@
+"""
+Cox proportional hazards model: what is associated with how long a show stays
+in the Netflix Top 10?
+
+Self-contained: needs only numpy, pandas, scipy (no lifelines).
+Uses Efron's method for tied durations (the same default as lifelines).
+
+Run:   python cox_regression_model.py               (full model)
+       python cox_regression_model.py --no-rating   (drops TMDB rating, which is
+                                                     only known after release)
+Input: master_netflix_analysis.csv (same folder as this script)
+Output: cox_regression_summary_v2.csv, or cox_regression_summary_no_rating.csv
+        with --no-rating (same columns as a lifelines summary)
+
+`load_model_data()` is also importable, e.g. by the forest-plot script.
+"""
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "master_netflix_analysis.csv"
+OUT = ROOT / "cox_regression_summary_v2.csv"
+
+MIN_GENRE_N = 20                 # genres with fewer shows are pooled into "Other"
+KEEP_LANGS = ["ko", "es", "ja"]  # other non-English languages -> "other"
+
+
+# --------------------------------------------------------------------------
+# 1. Data preparation
+# --------------------------------------------------------------------------
+def load_model_data(verbose=False) -> pd.DataFrame:
+    d = pd.read_csv(SRC)
+    n0 = len(d)
+
+    # Censoring: drop shows still in the Top 10 when the data ends
+    # (event_observed == 0), so every remaining show has an observed exit.
+    d = d[d["event_observed"] == 1]
+    n_obs = len(d)
+
+    # Need a release date for the release-timing variables
+    d = d.dropna(subset=["first_air_date"])
+    n_date = len(d)
+
+    # Several Netflix titles were matched to the same TMDB record (e.g. "Money
+    # Heist" and "Heist"). Keep one row per tmdb_id: the longest-running title.
+    d = (d.sort_values("duration_weeks", ascending=False, kind="stable")
+           .drop_duplicates("tmdb_id", keep="first"))
+    if verbose:
+        print(f"{n0} rows -> {n_obs} observed exits -> {n_date} with release date "
+              f"-> {len(d)} after one row per TMDB id")
+
+    d = d.copy()
+    d["first_air_date"] = pd.to_datetime(d["first_air_date"])
+
+    # Genre: small genres pooled into "Other"; Drama is the reference level
+    counts = d["primary_genre"].value_counts()
+    d["genre"] = d["primary_genre"].where(
+        d["primary_genre"].map(counts) >= MIN_GENRE_N, "Other (small genres)")
+
+    # Language: English is the reference level
+    d["lang"] = np.where(d["original_language"] == "en", "en",
+                         np.where(d["original_language"].isin(KEEP_LANGS),
+                                  d["original_language"], "other"))
+
+    d["log_episodes"] = np.log(d["number_of_episodes"])
+    d["release_month"] = d["first_air_date"].dt.month        # January = reference
+    d["release_year_decade"] = (d["first_air_date"].dt.year - 2000) / 10
+
+    # Standardize continuous predictors (hazard ratio is then per +1 SD)
+    for c in ["vote_average", "log_episodes", "number_of_seasons"]:
+        d[c + "_z"] = (d[c] - d[c].mean()) / d[c].std()
+    return d.reset_index(drop=True)
+
+
+def design_matrix(d: pd.DataFrame, use_rating=True) -> pd.DataFrame:
+    def dummies(col, prefix, ref):
+        x = pd.get_dummies(d[col], prefix=f"C({prefix})[T", prefix_sep=".")
+        x.columns = [c + "]" for c in x.columns]
+        return x.drop(columns=f"C({prefix})[T.{ref}]")
+
+    cols = ["log_episodes_z", "number_of_seasons_z", "release_year_decade"]
+    if use_rating:
+        cols = ["vote_average_z"] + cols
+    cont = d[cols]
+    X = pd.concat([dummies("genre", "genre", "Drama"),
+                   dummies("lang", "lang", "en"),
+                   cont,
+                   dummies("release_month", "release_month", 1)], axis=1)
+    return X.astype(float)
+
+
+# --------------------------------------------------------------------------
+# 2. Cox model (Efron ties), Newton-Raphson
+# --------------------------------------------------------------------------
+def efron_loglik(beta, X, T, E):
+    """Return Efron partial log-likelihood, gradient and Hessian."""
+    eta = X @ beta
+    shift = eta.max()                      # numerical stability
+    w = np.exp(eta - shift)
+    p = X.shape[1]
+    ll, grad, hess = 0.0, np.zeros(p), np.zeros((p, p))
+    for t in np.unique(T[E == 1]):
+        risk = T >= t
+        ev = (T == t) & (E == 1)
+        d = ev.sum()
+        S0r, S1r = w[risk].sum(), w[risk] @ X[risk]
+        S2r = (X[risk].T * w[risk]) @ X[risk]
+        S0d, S1d = w[ev].sum(), w[ev] @ X[ev]
+        S2d = (X[ev].T * w[ev]) @ X[ev]
+        ll += eta[ev].sum()
+        grad += X[ev].sum(0)
+        for l in range(d):
+            f = l / d
+            s0, s1, s2 = S0r - f * S0d, S1r - f * S1d, S2r - f * S2d
+            ll -= np.log(s0) + shift
+            grad -= s1 / s0
+            hess -= s2 / s0 - np.outer(s1, s1) / s0 ** 2
+    return ll, grad, hess
+
+
+def fit_cox(X: pd.DataFrame, T, E, tol=1e-9, max_iter=50):
+    Xv = X.values
+    beta = np.zeros(Xv.shape[1])
+    for _ in range(max_iter):
+        ll, g, H = efron_loglik(beta, Xv, T, E)
+        step = np.linalg.solve(-H, g)
+        s = 1.0                                        # step halving
+        while efron_loglik(beta + s * step, Xv, T, E)[0] < ll - 1e-12 and s > 1e-4:
+            s /= 2
+        beta = beta + s * step
+        if abs(efron_loglik(beta, Xv, T, E)[0] - ll) < tol:
+            break
+    ll, _, H = efron_loglik(beta, Xv, T, E)
+    ll0 = efron_loglik(np.zeros_like(beta), Xv, T, E)[0]
+    cov = np.linalg.inv(-H)
+    se = np.sqrt(np.diag(cov))
+    z = beta / se
+    p = 2 * stats.norm.sf(np.abs(z))
+    q = stats.norm.ppf(0.975)
+    summary = pd.DataFrame({
+        "coef": beta, "exp(coef)": np.exp(beta), "se(coef)": se,
+        "coef lower 95%": beta - q * se, "coef upper 95%": beta + q * se,
+        "exp(coef) lower 95%": np.exp(beta - q * se),
+        "exp(coef) upper 95%": np.exp(beta + q * se),
+        "cmp to": 0.0, "z": z, "p": p, "-log2(p)": -np.log2(p)}, index=X.columns)
+    summary.index.name = "term"
+    return summary, ll, ll0, cov
+
+
+# --------------------------------------------------------------------------
+# 3. Diagnostics
+# --------------------------------------------------------------------------
+def concordance(eta, T, E):
+    conc = disc = tie = 0
+    for i in np.where(E == 1)[0]:
+        later = T > T[i]
+        conc += (eta[i] > eta[later]).sum()
+        disc += (eta[i] < eta[later]).sum()
+        tie += (eta[i] == eta[later]).sum()
+    return (conc + 0.5 * tie) / (conc + disc + tie)
+
+
+def ph_test(X, T, E, beta, cov):
+    """Grambsch-Therneau-style test: scaled Schoenfeld residuals vs time rank."""
+    Xv, w = X.values, np.exp(X.values @ beta)
+    ev = np.where(E == 1)[0]
+    R = np.array([Xv[i] - (w[T >= T[i]] @ Xv[T >= T[i]]) / w[T >= T[i]].sum()
+                  for i in ev])
+    scaled = len(ev) * R @ cov + beta
+    rank = stats.rankdata(T[ev])
+    rows = [(c, *stats.pearsonr(rank, scaled[:, j])) for j, c in enumerate(X.columns)]
+    return pd.DataFrame(rows, columns=["term", "rho", "p"]).sort_values("p")
+
+
+# --------------------------------------------------------------------------
+if __name__ == "__main__":
+    use_rating = "--no-rating" not in sys.argv
+    if not use_rating:
+        OUT = ROOT / "cox_regression_summary_no_rating.csv"
+    df = load_model_data(verbose=True)
+    X = design_matrix(df, use_rating)
+    T = df["duration_weeks"].values
+    E = df["event_observed"].values            # all 1 after dropping censored shows
+
+    summary, ll, ll0, cov = fit_cox(X, T, E)
+    summary.to_csv(OUT)
+
+    lr = 2 * (ll - ll0)
+    print(f"\nShows: {len(df)}   events: {int(E.sum())}   terms: {X.shape[1]}")
+    print(f"Likelihood-ratio chi2 = {lr:.1f} (df={X.shape[1]}), "
+          f"p = {stats.chi2.sf(lr, X.shape[1]):.2e}")
+    print(f"Concordance = {concordance(X.values @ summary['coef'].values, T, E):.3f}")
+    pd.set_option("display.width", 200)
+    print("\n", summary[["exp(coef)", "exp(coef) lower 95%",
+                         "exp(coef) upper 95%", "p"]].round(3).to_string())
+    print("\nProportional-hazards check (smallest p first):")
+    print(ph_test(X, T, E, summary["coef"].values, cov).head(5).round(4).to_string(index=False))
+    print(f"\nSaved {OUT}")
